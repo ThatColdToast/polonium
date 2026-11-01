@@ -46,6 +46,16 @@ export interface Shortcuts {
 
     toggleSettingsMenu(): ShortcutHandler;
     cycleEngine(): ShortcutHandler;
+
+    moveToDesktop1(): ShortcutHandler;
+    moveToDesktop2(): ShortcutHandler;
+    moveToDesktop3(): ShortcutHandler;
+    moveToDesktop4(): ShortcutHandler;
+    moveToDesktop5(): ShortcutHandler;
+    moveToDesktop6(): ShortcutHandler;
+    moveToDesktop7(): ShortcutHandler;
+    moveToDesktop8(): ShortcutHandler;
+    moveToDesktop9(): ShortcutHandler;
 }
 
 export interface Settings extends QObject {
