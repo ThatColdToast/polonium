@@ -242,6 +242,98 @@ Item {
         text: "Polonium: Reload Config";
         sequence: "";
     }
+
+    // shift+number gives the shifted symbol on us layouts, which is what kwin matches against
+    function moveToDesktop1() {
+        return moveToDesktop1Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop1Obj;
+        
+        name: "PoloniumMoveToDesktop1";
+        text: "Polonium: Move Window to Desktop 1";
+        sequence: "Meta+!";
+    }
+    function moveToDesktop2() {
+        return moveToDesktop2Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop2Obj;
+        
+        name: "PoloniumMoveToDesktop2";
+        text: "Polonium: Move Window to Desktop 2";
+        sequence: "Meta+@";
+    }
+    function moveToDesktop3() {
+        return moveToDesktop3Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop3Obj;
+        
+        name: "PoloniumMoveToDesktop3";
+        text: "Polonium: Move Window to Desktop 3";
+        sequence: "Meta+#";
+    }
+    function moveToDesktop4() {
+        return moveToDesktop4Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop4Obj;
+        
+        name: "PoloniumMoveToDesktop4";
+        text: "Polonium: Move Window to Desktop 4";
+        sequence: "Meta+$";
+    }
+    function moveToDesktop5() {
+        return moveToDesktop5Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop5Obj;
+        
+        name: "PoloniumMoveToDesktop5";
+        text: "Polonium: Move Window to Desktop 5";
+        sequence: "Meta+%";
+    }
+    function moveToDesktop6() {
+        return moveToDesktop6Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop6Obj;
+        
+        name: "PoloniumMoveToDesktop6";
+        text: "Polonium: Move Window to Desktop 6";
+        sequence: "Meta+^";
+    }
+    function moveToDesktop7() {
+        return moveToDesktop7Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop7Obj;
+        
+        name: "PoloniumMoveToDesktop7";
+        text: "Polonium: Move Window to Desktop 7";
+        sequence: "Meta+&";
+    }
+    function moveToDesktop8() {
+        return moveToDesktop8Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop8Obj;
+        
+        name: "PoloniumMoveToDesktop8";
+        text: "Polonium: Move Window to Desktop 8";
+        sequence: "Meta+*";
+    }
+    function moveToDesktop9() {
+        return moveToDesktop9Obj;
+    }
+    ShortcutHandler {
+        id: moveToDesktop9Obj;
+        
+        name: "PoloniumMoveToDesktop9";
+        text: "Polonium: Move Window to Desktop 9";
+        sequence: "Meta+(";
+    }
     /*
         function getRotateLayout() {
         return rotateLayout;
