@@ -21,6 +21,7 @@ export interface QmlObjects {
 
 export interface Shortcuts {
     toggleActiveTiling(): ShortcutHandler;
+    toggleAllTiling(): ShortcutHandler;
 
     setEngineBTree(): ShortcutHandler;
     setEngineHalf(): ShortcutHandler;
@@ -88,4 +89,5 @@ export interface DBus extends QObject {
     setSettings(): DBusCall;
     resetSettings(): DBusCall;
     reconfigure(): DBusCall;
+    moveMouseToFocus(): void;
 }

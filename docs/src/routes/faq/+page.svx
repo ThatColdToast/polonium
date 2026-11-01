@@ -2,7 +2,7 @@
 
 ## What layouts are supported?
 
-Right now, we have Binary Tree, Half, Three Column, Pillars, and Pager layouts.
+Right now, we have Binary Tree, Half, Three Column, Pillars, Pager, and KWin (untiled) layouts.
 They are highly [configurable](../configuration) and can emulate several other layout styles.
 
 Particularly, master-stack can be built with Half and dwindle/spiral can be built with BTree.
@@ -41,8 +41,13 @@ A pull request makes it vastly more likely that a feature will be added.
 
 ## It keeps breaking for me!
 
-Open an issue [here](https://github.com/zeroxoneafour/polonium/issues).
+First run through this checklist -
+1. Make sure you have the KWin Version set to the latest you support in settings
+2. Make sure you are ignoring windows like kwin_wayland
+3. Try tweaking the rebuild delay and seeing if flickering goes anyway
+
+Still having trouble? Open an issue [here](https://github.com/zeroxoneafour/polonium/issues).
 
 ## How about X11?
 
-Never gonna happen. Plasma 6.8 is removing it completely anyway.
+Never gonna happen. Plasma 6.8 removed it completely anyway.

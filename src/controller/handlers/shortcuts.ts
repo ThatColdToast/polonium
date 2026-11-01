@@ -5,11 +5,11 @@ import { Direction, TilingEngineType } from "../../engine";
 import { Display } from "../event";
 import { Edge, Output, Tile, VirtualDesktop, Window } from "kwin-api";
 import { QPoint, QRect } from "kwin-api/qt";
+import { WarpCursor } from "../config";
+import { WindowHandler } from ".";
 
-// per-screen desktop methods only exist in newer KWin versions, and the screen switching slots arent typed
+// kwin exposes these slots to scripts but kwin-api doesnt type them
 interface ScreenWorkspace extends Workspace {
-    currentDesktopForScreen?(output: Output): VirtualDesktop;
-    setCurrentDesktopForScreen?(desktop: VirtualDesktop, output: Output): void;
     slotSwitchToLeftScreen(): void;
     slotSwitchToRightScreen(): void;
 }
@@ -60,6 +60,9 @@ export class ShortcutsHandler {
         this.shortcuts
             .toggleActiveTiling()
             .activated.connect(this.toggleActiveTiling.bind(this));
+        this.shortcuts
+            .toggleAllTiling()
+            .activated.connect(this.toggleAllTiling.bind(this));
 
         this.shortcuts
             .setEngineBTree()
@@ -197,20 +200,51 @@ export class ShortcutsHandler {
         }
     }
 
+    // if any windows are untiled, then tile them all, else untile all
+    toggleAllTiling() {
+        const display = Display.activeDisplay()!;
+        const untiledWindows = new Set<[Window, WindowHandler]>();
+        const tiledWindows = new Set<[Window, WindowHandler]>();
+        for (const window of this.workspace.windows) {
+            const windowHandler = ctrl().getWindowHandler(window);
+            // unmanaged windows should also be skipped here
+            if (windowHandler == undefined || !display.containsWindow(window)) {
+                continue;
+            }
+            if (ctrl().isWindowTiled(window, display)) {
+                tiledWindows.add([window, windowHandler]);
+            } else {
+                untiledWindows.add([window, windowHandler]);
+            }
+        }
+        if (untiledWindows.size > 0) {
+            for (const [window, windowHandler] of untiledWindows) {
+                windowHandler.wantsTiled = true;
+                ctrl().queueEvent({
+                    t: "tileWindow",
+                    window: window,
+                });
+            }
+        } else {
+            for (const [window, windowHandler] of tiledWindows) {
+                windowHandler.wantsTiled = false;
+                ctrl().queueEvent({
+                    t: "untileWindow",
+                    window: window,
+                });
+            }
+        }
+    }
+
     setEngineType(engineType: TilingEngineType) {
         ctrl().queueEvent({
             t: "changeEngine",
-            display: new Display(
-                this.workspace.currentDesktop,
-                this.workspace.currentActivity,
-                this.workspace.activeScreen,
-            ),
+            display: Display.activeDisplay()!,
             engineType: engineType,
         });
     }
 
-    getTileInDirection(tile: Tile, rootTile: Tile, edge: Edge): Tile | null {
-        if (tile == rootTile) return null;
+    getTileInDirection(tile: Tile, edge: Edge): Tile | null {
         let x = tile.absoluteGeometry.x;
         let y = tile.absoluteGeometry.y;
         // kwin fucking up math somehow so add 2 instead of 1 for offset
@@ -236,18 +270,27 @@ export class ShortcutsHandler {
         }
         const point = qt().point(Math.floor(x), Math.floor(y));
         console().debug("selecting tile for point", point);
+        const screen = this.workspace.screenAt(point);
+        const rootTile = this.workspace.rootTile(
+            screen,
+            this.desktopForScreen(screen),
+        );
+        if (tile == rootTile) {
+            return null;
+        }
         return rootTile.pick(point);
     }
 
+    // per-screen desktops need kwin 6.7, so check for the method instead of asking for the version
     private desktopForScreen(output: Output): VirtualDesktop {
-        return (
-            this.workspace.currentDesktopForScreen?.(output) ??
-            this.workspace.currentDesktop
-        );
+        if (typeof this.workspace.currentDesktopForScreen === "function") {
+            return this.workspace.currentDesktopForScreen(output);
+        }
+        return this.workspace.currentDesktop;
     }
 
     private setDesktopForScreen(desktop: VirtualDesktop, output: Output) {
-        if (this.workspace.setCurrentDesktopForScreen !== undefined) {
+        if (typeof this.workspace.setCurrentDesktopForScreen === "function") {
             this.workspace.setCurrentDesktopForScreen(desktop, output);
         } else {
             this.workspace.currentDesktop = desktop;
@@ -273,41 +316,37 @@ export class ShortcutsHandler {
     activateInDirection(edge: Edge) {
         const window = this.workspace.activeWindow;
         const currentTile = window?.tile ?? null;
-        if (currentTile != null) {
-            const targetTile = this.getTileInDirection(
-                currentTile,
-                rootOf(currentTile),
-                edge,
+        const targetTile =
+            currentTile && this.getTileInDirection(currentTile, edge);
+        const targetWindow = targetTile?.windows[0];
+        if (targetTile != null && targetWindow !== undefined) {
+            console().debug(
+                "activateInDirection geom -",
+                targetTile.absoluteGeometry,
             );
-            if (targetTile != null) {
-                console().log(
-                    "activateInDirection geom -",
-                    targetTile.absoluteGeometry,
-                );
-                if (targetTile.windows.length == 0) return;
-                this.workspace.activeWindow = targetTile.windows[0];
-                return;
+            this.workspace.activeWindow = targetWindow;
+            if (config().warpCursor === WarpCursor.OnShortcut) {
+                ctrl().queuePostEvent({
+                    t: "warpCursor",
+                    window: targetWindow,
+                });
             }
+            return;
         }
-        // nothing further this way on this screen, so try the next screen over
+        // an empty tile on this screen stops here
+        if (
+            currentTile != null &&
+            targetTile != null &&
+            rootOf(targetTile) === rootOf(currentTile)
+        ) {
+            return;
+        }
+        // no tiled window that way, so let kwin pick the last used window on the next screen
         const output = window?.output ?? this.workspace.activeScreen;
         const target = this.screenInDirection(output, edge);
         if (target == null) return;
-        const rootTile = this.workspace.rootTile(
-            target,
-            this.desktopForScreen(target),
-        );
-        const point = entryPoint(
-            rootTile.absoluteGeometry,
-            edge,
-            window?.frameGeometry ?? output.geometry,
-        );
-        const targetWindow = rootTile.pick(point)?.windows[0];
         console().log("activateInDirection screen -", target.name);
-        if (targetWindow !== undefined) {
-            this.workspace.activeWindow = targetWindow;
-        } else if (edge === Edge.LeftEdge) {
-            // no tiled window at that edge, so let kwin pick the last used window there
+        if (edge === Edge.LeftEdge) {
             this.workspace.slotSwitchToLeftScreen();
         } else {
             this.workspace.slotSwitchToRightScreen();
@@ -377,9 +416,14 @@ export class ShortcutsHandler {
         }
         const currentTile = window.tile;
         const targetTile =
-            currentTile &&
-            this.getTileInDirection(currentTile, rootOf(currentTile), edge);
-        if (currentTile === null || targetTile == null) {
+            currentTile && this.getTileInDirection(currentTile, edge);
+        // past the edge of this layout, including into a tile on the next screen,
+        // the window enters from the near side instead of swapping into the tile
+        if (
+            currentTile === null ||
+            targetTile == null ||
+            rootOf(targetTile) !== rootOf(currentTile)
+        ) {
             this.placePastEdge(window, edge);
             return;
         }
@@ -430,6 +474,15 @@ export class ShortcutsHandler {
             tile: targetTile,
             direction: direction,
         });
+        // Add this someday when cursor warp becomes more stable
+        /*
+        if (
+            config().warpCursor === WarpCursor.OnShortcut ||
+            config().warpCursor === WarpCursor.Always
+        ) {
+            ctrl().queuePostEvent({ t: "warpCursor", window: window });
+        }
+        */
     }
 
     resizeInDirection(edge: Edge) {
@@ -489,22 +542,12 @@ export class ShortcutsHandler {
     toggleSettingsMenu() {
         ctrl().queuePostEvent({
             t: "toggleSettingsMenu",
-            display: new Display(
-                this.workspace.currentDesktop,
-                this.workspace.currentActivity,
-                this.workspace.activeScreen,
-            ),
+            display: Display.activeDisplay()!,
         });
     }
 
     cycleEngine() {
-        const current = ctrl().getEngineType(
-            new Display(
-                this.workspace.currentDesktop,
-                this.workspace.currentActivity,
-                this.workspace.activeScreen,
-            ),
-        );
+        const current = ctrl().getEngineType(Display.activeDisplay()!);
         if (current === undefined) {
             // Should never happen, but it's better for code quality
             // that we assume that it can and we handle the error without assumption.

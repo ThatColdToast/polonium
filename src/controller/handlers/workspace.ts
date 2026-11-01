@@ -1,7 +1,7 @@
 import { Workspace } from "kwin-api/qml";
 import { config, controller as ctrl } from "..";
 import { Window } from "kwin-api";
-import { Borders } from "../config";
+import { Borders, WarpCursor } from "../config";
 import { directionFromPoint } from "../../util";
 import { Display } from "../event";
 
@@ -23,6 +23,9 @@ export class WorkspaceHandler {
 
         this.workspace.currentActivityChanged.connect(
             this.rebuildDesktops.bind(this),
+        );
+        this.workspace.currentDesktopChanged.connect(
+            this.refreshSettingsPopup.bind(this),
         );
 
         this.workspace.screensChanged.connect(this.updateDrivers.bind(this));
@@ -73,6 +76,13 @@ export class WorkspaceHandler {
         ctrl().queueEvent({ t: "updateDrivers" });
     }
 
+    refreshSettingsPopup() {
+        ctrl().queuePostEvent({
+            t: "refreshSettingsMenu",
+            display: Display.activeDisplay()!,
+        });
+    }
+
     windowActivated(window: Window | null) {
         // eventually we should move border setting entirely into the controller/driver
         this.previousActivated = this.currentActivated;
@@ -108,5 +118,8 @@ export class WorkspaceHandler {
             t: "windowActivated",
             window: window,
         });
+        if (config().warpCursor === WarpCursor.Always) {
+            ctrl().queuePostEvent({ t: "warpCursor", window: window });
+        }
     }
 }

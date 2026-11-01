@@ -24,7 +24,12 @@ export class Display {
     }
 
     toString(): string {
-        return `{"d":"${this.desktop.id}","a":"${this.activity}","o":"${this.output.name}"}`;
+        // same format as before (key order, no spaces) so saved dbus settings still match
+        return JSON.stringify({
+            d: this.desktop.id,
+            a: this.activity,
+            o: this.output.name,
+        });
     }
 
     toSymbol(): DisplaySymbol {
@@ -58,11 +63,35 @@ export class Display {
         const desktops = window.onAllDesktops
             ? (this.workspace?.desktops ?? [])
             : window.desktops;
+        const activities =
+            window.activities.length > 0
+                ? window.activities
+                : (this.workspace?.activities ?? []);
         for (const desktop of desktops) {
-            for (const activity of window.activities) {
+            for (const activity of activities) {
                 yield new Display(desktop, activity, window.output);
             }
         }
+    }
+
+    static activeDisplay(): Display | null {
+        if (this.workspace == undefined) {
+            return null;
+        }
+        return new Display(
+            this.workspace.currentDesktop,
+            this.workspace.currentActivity,
+            this.workspace.activeScreen,
+        );
+    }
+
+    containsWindow(window: Window): boolean {
+        return (
+            (window.desktops.includes(this.desktop) || window.onAllDesktops) &&
+            (window.activities.includes(this.activity) ||
+                window.activities.length == 0) &&
+            window.output === this.output
+        );
     }
 }
 
@@ -167,8 +196,20 @@ interface ToggleSettingsMenuEvent {
     t: "toggleSettingsMenu";
     display: Display;
 }
+interface WarpCursorEvent {
+    t: "warpCursor";
+    window: Window;
+}
+interface RefreshSettingsMenuEvent {
+    t: "refreshSettingsMenu";
+    display: Display;
+}
 
-export type PostEvent = SetWindowPropertiesEvent | ToggleSettingsMenuEvent;
+export type PostEvent =
+    | SetWindowPropertiesEvent
+    | ToggleSettingsMenuEvent
+    | WarpCursorEvent
+    | RefreshSettingsMenuEvent;
 
 function eventsAreSame(ev1: GenericEvent, ev2: GenericEvent): boolean {
     if (ev1.t !== ev2.t) return false;
@@ -228,7 +269,7 @@ export function simplifyEvents(oldEvents: Queue<Event>): Queue<Event> {
                 }
                 continue;
             }
-            const parallelIdx = newEvents.indexOf(
+            const parallelIdx = newEvents.findIndex(
                 (e) =>
                     (e.t === "tileWindow" ||
                         e.t === "untileWindow" ||
@@ -242,7 +283,7 @@ export function simplifyEvents(oldEvents: Queue<Event>): Queue<Event> {
         }
         // if a window is deleted in the same frame it is created then cancel both events
         if (ev.t === "deleteWindow") {
-            const newIdx = newEvents.indexOf(
+            const newIdx = newEvents.findIndex(
                 (e) => e.t === "newWindow" && e.window === ev.window,
             );
             if (newIdx != -1) {
@@ -273,6 +314,14 @@ export function simplifyPostEvents(
 ): Queue<PostEvent> {
     const newEvents = new Queue<PostEvent>();
     for (const ev of oldEvents) {
+        if (ev.t === "warpCursor") {
+            let pastCursorEv = newEvents.findIndex(
+                (ev) => ev.t === "warpCursor",
+            );
+            if (pastCursorEv != -1) {
+                newEvents.removeAtIndex(pastCursorEv);
+            }
+        }
         if (newEvents.some((e) => eventsAreSame(ev, e))) {
             continue;
         }

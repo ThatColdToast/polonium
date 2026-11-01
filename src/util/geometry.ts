@@ -1,6 +1,7 @@
 // geometry.ts - Useful geometry functions (gtools)
 
 import { QPoint, QRect } from "kwin-api/qt";
+import { qt } from "../controller";
 
 // direction uses up/right for quadrant of direction and vertical for whether the point is leaning vertically or horizontally along the y = +-x split
 export const enum Direction {
@@ -62,4 +63,25 @@ export function directionFromPoint(r: QRect, p: QPoint): Direction {
             }
         }
     }
+}
+
+export function rectContainsPoint(r: QRect, p: QPoint): boolean {
+    if (p.x < r.x || p.y < r.y) {
+        return false;
+    }
+    if (p.x > r.x + r.width || p.y > r.y + r.height) {
+        return false;
+    }
+    return true;
+}
+
+export function rectCenter(r: QRect): QPoint {
+    return qt().point(r.x + r.width / 2, r.y + r.height / 2);
+}
+
+export function clampPoint(r: QRect, p: QPoint, margin: number = 0): QPoint {
+    return qt().point(
+        Math.min(Math.max(r.x + margin, p.x), r.x + r.width - margin),
+        Math.min(Math.max(r.y + margin, p.y), r.y + r.height - margin),
+    );
 }

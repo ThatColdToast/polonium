@@ -22,6 +22,7 @@ import { Driver } from "../driver";
 import { QPoint, QTimer, Qt } from "kwin-api/qt";
 import { Config } from "./config";
 import { TilingEngineType } from "../engine";
+import { rectContainsPoint } from "../util";
 
 class Controller {
     private workspace: Workspace;
@@ -42,6 +43,7 @@ class Controller {
     private settingsHandler: SettingsHandler;
     private dbusHandler: DBusHandler | null = null;
     private configReloadPending: boolean = false;
+    private moveMouseToFocusFn: () => void;
 
     constructor(qmlApi: QmlApi, qmlObjects: QmlObjects) {
         this.workspace = qmlApi.workspace;
@@ -57,6 +59,7 @@ class Controller {
         if (config().useDBusSaver) {
             this.dbusHandler = new DBusHandler(this.qmlObjects.dbus);
         }
+        this.moveMouseToFocusFn = this.qmlObjects.dbus.moveMouseToFocus;
         this.settingsHandler = new SettingsHandler(this.qmlObjects.settings);
         this.workspaceHandler = new WorkspaceHandler(this.workspace);
         this.shortcutsHandler = new ShortcutsHandler(
@@ -116,55 +119,63 @@ class Controller {
 
     private processEvents() {
         this.processingEvents = true;
-        const queue = simplifyEvents(this.eventQueue);
-        this.eventQueue = new Queue<Event>();
-        console().debug("Handling", queue.size, "event(s)");
-        const rebuildDisplays = new Map<DisplaySymbol, Display>();
-        while (!queue.isEmpty) {
-            const ev = queue.pop();
-            if (ev === undefined) {
-                break;
+        try {
+            const queue = simplifyEvents(this.eventQueue);
+            this.eventQueue = new Queue<Event>();
+            console().debug("Handling", queue.length, "event(s)");
+            const rebuildDisplays = new Map<DisplaySymbol, Display>();
+            while (queue.length > 0) {
+                const ev = queue.pop();
+                if (ev === undefined) {
+                    break;
+                }
+                const displays = this.handleEvent(ev);
+                for (const display of displays) {
+                    rebuildDisplays.set(display.toSymbol(), display);
+                }
             }
-            const displays = this.handleEvent(ev);
-            for (const display of displays) {
-                rebuildDisplays.set(display.toSymbol(), display);
-            }
-        }
-        for (const [_, display] of rebuildDisplays) {
-            if (display.desktop == undefined || display.output == undefined) {
-                continue;
-            }
-            // dont rebuild for other activities because tiles are shared between them
-            if (display.activity !== this.workspace.currentActivity) {
-                continue;
-            }
-            console().debug("Rebuilding for display", display.toString());
-            const driver = this.getDriver(display);
-            const rootTile = this.workspace.rootTile(
-                display.output,
-                display.desktop,
-            );
-            if (driver != undefined && rootTile != undefined) {
-                driver.buildLayout(rootTile, display);
-            } else {
-                console().error(
-                    "no driver found for display",
-                    display.toString(),
+            for (const [_, display] of rebuildDisplays) {
+                if (
+                    display.desktop == undefined ||
+                    display.output == undefined
+                ) {
+                    continue;
+                }
+                console().debug("Rebuilding for display", display.toString());
+                const driver = this.getDriver(display);
+                if (driver == undefined) {
+                    console().error(
+                        "no driver found for display",
+                        display.toString(),
+                    );
+                    continue;
+                }
+                const rootTile = this.workspace.rootTile(
+                    display.output,
+                    display.desktop,
                 );
-                continue;
+                if (display.activity !== this.workspace.currentActivity) {
+                    // dont rebuild for other activities because tiles are shared between them
+                    driver.buildState(display);
+                } else if (rootTile != undefined) {
+                    driver.buildLayout(rootTile, display);
+                }
             }
-        }
-        const postQueue = simplifyPostEvents(this.postEventQueue);
-        this.postEventQueue = new Queue<PostEvent>();
-        console().debug("Handling", postQueue.size, "post event(s)");
-        while (!postQueue.isEmpty) {
-            const ev = postQueue.pop();
-            if (ev === undefined) {
-                break;
+            const postQueue = simplifyPostEvents(this.postEventQueue);
+            this.postEventQueue = new Queue<PostEvent>();
+            console().debug("Handling", postQueue.length, "post event(s)");
+            while (postQueue.length > 0) {
+                const ev = postQueue.pop();
+                if (ev === undefined) {
+                    break;
+                }
+                this.handlePostEvent(ev);
             }
-            this.handlePostEvent(ev);
+        } catch (e) {
+            console().error("ran into error during ev handling -", e);
+        } finally {
+            this.processingEvents = false;
         }
-        this.processingEvents = false;
     }
 
     // returns a list of displays that need a rebuild
@@ -361,9 +372,9 @@ class Controller {
                 } else {
                     driver.addWindow(window);
                 }
-                continue;
+            } else {
+                driver.placeWindow(window, tile, direction);
             }
-            driver.placeWindow(window, tile, direction);
             displays.push(display);
         }
         return displays;
@@ -395,23 +406,17 @@ class Controller {
             */
             const driver = this.getDriver(display);
             if (driver == undefined) continue;
-            displays.push(display);
-            // can only get tiles for current activity
-            if (display.activity !== this.workspace.currentActivity) {
-                if (driver.hasWindow(window)) {
-                    driver.tileWindow(window);
-                } else {
-                    driver.addWindow(window);
-                }
-                continue;
-            }
             const rootTile = this.workspace.rootTile(
                 display.output,
                 display.desktop,
             );
             const tile =
                 rootTile.tiles.length == 0 ? rootTile : rootTile.pick(point);
-            if (tile === null || !driver.hasTile(tile)) {
+            if (
+                tile === null ||
+                !driver.hasTile(tile) ||
+                display.activity !== this.workspace.currentActivity
+            ) {
                 if (driver.hasWindow(window)) {
                     driver.tileWindow(window);
                 } else {
@@ -424,6 +429,7 @@ class Controller {
                 );
                 driver.placeWindow(window, tile, direction);
             }
+            displays.push(display);
         }
         /*
         if (output !== window.output) {
@@ -597,6 +603,46 @@ class Controller {
                 );
                 return;
             }
+            case "warpCursor": {
+                if (!this.windowExists(ev.window)) {
+                    break;
+                }
+                if (
+                    rectContainsPoint(
+                        ev.window.frameGeometry,
+                        this.workspace.cursorPos,
+                    )
+                ) {
+                    return;
+                }
+                console().debug(
+                    "warping cursor to window",
+                    ev.window.resourceClass,
+                );
+                let oldActiveWindow = this.workspace.activeWindow;
+                this.workspace.activeWindow = ev.window;
+                this.moveMouseToFocusFn();
+                this.workspace.activeWindow = oldActiveWindow;
+                return;
+            }
+            // basically this does the same thing as toggle but opposite
+            // i mean that if the display is open it updates (shows) it, if not it does nothing
+            case "refreshSettingsMenu": {
+                console().log("refreshing settings menu");
+                if (!this.settingsHandler.isVisible()) {
+                    return;
+                }
+                const driver = this.getDriver(ev.display);
+                if (driver === undefined) {
+                    break;
+                }
+                this.settingsHandler.show(
+                    ev.display,
+                    driver.getEngineType(),
+                    driver.getEngineSettings(),
+                );
+                return;
+            }
             default: {
                 console().error("invalid post event type", (ev as any).t);
                 return;
@@ -708,6 +754,9 @@ export function initializeController(qmlApi: QmlApi, qmlObjects: QmlObjects) {
     consoleObj = new Console(qmlApi.console);
     qtObject = qmlApi.qt;
     console().debug("config -", JSON.stringify(config()));
+    for (const err of config().regexErrors) {
+        console().error(err);
+    }
     controllerObj = new Controller(qmlApi, qmlObjects);
     console().log("controller initialized. Welcome to Polonium!");
 }

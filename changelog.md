@@ -2,6 +2,13 @@
 
 ## 1.2
 
+### Unreleased (ThatColdToast fork)
+
+- Add shortcut to reload config without logging out
+- Move focus and windows to the next screen with activate/place left and right at the edge of a layout
+- Move windows to the previous/next desktop with place up and down at the edge of a layout
+- Add shortcuts to move the active window to desktops 1-9 and follow it
+
 ### 1.2.2
 
 - Shrink tiles when resizing with keyboard shortcuts at maximum size
@@ -9,10 +16,14 @@
 - Add option for where to place dragged windows
 - Fix shift-dragging untiled windows
 - Fix empty window filters matching windows with empty classes or captions
-- Add shortcut to reload config without logging out
-- Move focus and windows to the next screen with activate/place left and right at the edge of a layout
-- Move windows to the previous/next desktop with place up and down at the edge of a layout
-- Add shortcuts to move the active window to desktops 1-9 and follow it
+- Fix border settings on changing engine type
+- Fix windows on all activities
+- Multiple displays for shortcuts (hypothetically)
+- Snap cursor to active window settings (broken for swap, out of our control)
+- Option for ultrawide windows per-display
+- Updated settings interface
+- Added shortcut to toggle tiling on active display
+- Optimized rebuild and update tile functions
 
 ### 1.2.1
 

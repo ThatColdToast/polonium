@@ -2,7 +2,7 @@
 
 import { LayoutDirection } from "kwin-api";
 import { QSize, QUuid } from "kwin-api/qt";
-import { Direction } from "../util/geometry";
+import { Direction } from "../util";
 
 export { LayoutDirection, Direction };
 
@@ -81,12 +81,13 @@ export class Tile {
     }
 
     // adds a child that will split perpendicularly to the parent. Returns the child
-    addChild(): Tile {
+    addChild(tile?: Tile): Tile {
         let splitDirection: LayoutDirection = LayoutDirection.Horizontal;
         if (this.layoutDirection == LayoutDirection.Horizontal) {
             splitDirection = LayoutDirection.Vertical;
         }
-        const childTile = new Tile(this);
+        const childTile = tile != undefined ? tile : new Tile(this);
+        childTile.parent = this;
         this.children.push(childTile);
         childTile.layoutDirection = splitDirection;
         return childTile;
@@ -132,25 +133,56 @@ export class Tile {
         };
     }
 
+    // tile trees can come from dbus/disk so they are validated and bounded
+    // to avoid building absurd layouts in the compositor
     static fromJSON(json: object | string, parent?: Tile): Tile {
-        const tile = new Tile(parent);
-        if (parent != null) {
-            parent.children.push(tile);
-        }
         let obj;
         try {
             obj = typeof json === "string" ? JSON.parse(json) : json;
         } catch (_e) {
+            obj = null;
+        }
+        return Tile.fromJSONInner(obj, parent, 0, { count: 0 });
+    }
+
+    private static fromJSONInner(
+        obj: any,
+        parent: Tile | undefined,
+        depth: number,
+        budget: { count: number },
+    ): Tile {
+        const tile = new Tile(parent);
+        if (parent != null) {
+            parent.children.push(tile);
+        }
+        budget.count += 1;
+        if (obj == null || typeof obj !== "object") {
             return tile;
         }
-        tile.layoutDirection = obj.layoutDirection;
-        tile.size = obj.size;
+        if (
+            obj.layoutDirection === LayoutDirection.Horizontal ||
+            obj.layoutDirection === LayoutDirection.Vertical
+        ) {
+            tile.layoutDirection = obj.layoutDirection;
+        }
+        if (Number.isFinite(obj.size) && obj.size > 0) {
+            tile.size = obj.size;
+        }
+        if (!Array.isArray(obj.children) || depth >= maxTileDepth) {
+            return tile;
+        }
         for (const child of obj.children) {
-            Tile.fromJSON(child, tile);
+            if (budget.count >= maxTileCount) {
+                break;
+            }
+            Tile.fromJSONInner(child, tile, depth + 1, budget);
         }
         return tile;
     }
 }
+
+const maxTileDepth = 32;
+const maxTileCount = 256;
 
 // easy class to derive specific engine settings from
 export class BaseEngineSettings {
@@ -163,10 +195,15 @@ export class BaseEngineSettings {
         }
         return ret;
     }
+    // only copy values that match the type of the default, as settings can come from dbus/disk
     setProps(obj: any) {
-        if (obj == null) return;
+        if (obj == null || typeof obj !== "object") return;
         for (const key in this) {
-            if (obj.hasOwnProperty(key)) this[key] = obj[key];
+            if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+            const value = obj[key];
+            if (typeof value !== typeof this[key]) continue;
+            if (typeof value === "number" && !Number.isFinite(value)) continue;
+            this[key] = value;
         }
     }
 }
