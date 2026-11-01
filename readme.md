@@ -18,6 +18,17 @@ The descendant of [autotile](https://github.com/zeroxoneafour/kwin-autotile).
 
 </div>
 
+## this fork
+
+A personal fork of [zeroxoneafour/polonium](https://github.com/zeroxoneafour/polonium) for a COSMIC-like setup with independent desktops on each screen (KWin 6.7 per-output virtual desktops). Changes from upstream:
+
+- Polonium: Reload Config shortcut applies settings changes without logging out
+- Activate left/right moves focus to the neighbouring screen at the edge of a layout
+- Place left/right sends the window to the neighbouring screen; place up/down moves it to the previous/next desktop and follows it
+- Polonium: Move Window to Desktop 1-9 shortcuts (default Meta+Shift+1-9) move the window and follow it
+
+Build and install with `make`, then log out and back in. Upstream changes merge from the `upstream` remote.
+
 ## features
 
 - Works in Wayland Plasma 6.4 and up (6.7 recommended)
