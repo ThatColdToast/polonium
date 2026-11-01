@@ -9,6 +9,7 @@
 - Add option for where to place dragged windows
 - Fix shift-dragging untiled windows
 - Fix empty window filters matching windows with empty classes or captions
+- Add shortcut to reload config without logging out
 
 ### 1.2.1
 
