@@ -46,6 +46,7 @@ export interface Shortcuts {
 
     toggleSettingsMenu(): ShortcutHandler;
     cycleEngine(): ShortcutHandler;
+    reloadConfig(): ShortcutHandler;
 }
 
 export interface Settings extends QObject {
@@ -76,4 +77,5 @@ export interface DBus extends QObject {
     getSettings(): DBusCall;
     setSettings(): DBusCall;
     resetSettings(): DBusCall;
+    reconfigure(): DBusCall;
 }

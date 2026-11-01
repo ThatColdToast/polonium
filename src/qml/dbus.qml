@@ -39,4 +39,16 @@ Item {
         dbusInterface: "xyz.vaughanm.polonium";
         method: "ResetSettings";
     }
+
+    function reconfigure() {
+        return reconfigureObj;
+    }
+    DBusCall {
+        id: reconfigureObj;
+        
+        service: "org.kde.KWin";
+        path: "/KWin";
+        dbusInterface: "org.kde.KWin";
+        method: "reconfigure";
+    }
 }

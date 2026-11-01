@@ -112,6 +112,10 @@ export class ShortcutsHandler {
         this.shortcuts
             .cycleEngine()
             .activated.connect(this.cycleEngine.bind(this));
+
+        this.shortcuts
+            .reloadConfig()
+            .activated.connect(this.reloadConfig.bind(this));
     }
 
     toggleActiveTiling() {
@@ -335,5 +339,9 @@ export class ShortcutsHandler {
         }
         const next = (current + 1) % TilingEngineType._Loop;
         this.setEngineType(next);
+    }
+
+    reloadConfig() {
+        ctrl().requestConfigReload();
     }
 }

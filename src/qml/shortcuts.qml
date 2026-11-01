@@ -231,6 +231,17 @@ Item {
         text: "Polonium: Cycle Engine";
         sequence: "Meta+|";
     }
+
+    function reloadConfig() {
+        return reloadConfigObj;
+    }
+    ShortcutHandler {
+        id: reloadConfigObj;
+        
+        name: "PoloniumReloadConfig";
+        text: "Polonium: Reload Config";
+        sequence: "";
+    }
     /*
         function getRotateLayout() {
         return rotateLayout;

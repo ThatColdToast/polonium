@@ -8,7 +8,7 @@ import {
     Display,
 } from "./event";
 import { QmlApi, QmlObjects } from "../extern";
-import { Workspace } from "kwin-api/qml";
+import { Workspace, KWin } from "kwin-api/qml";
 import {
     WorkspaceHandler,
     WindowHandler,
@@ -25,6 +25,7 @@ import { TilingEngineType } from "../engine";
 
 class Controller {
     private workspace: Workspace;
+    private kwin: KWin;
     private qmlObjects: QmlObjects;
 
     private eventQueue: Queue<Event> = new Queue();
@@ -40,11 +41,12 @@ class Controller {
     private shortcutsHandler: ShortcutsHandler;
     private settingsHandler: SettingsHandler;
     private dbusHandler: DBusHandler | null = null;
+    private configReloadPending: boolean = false;
 
     constructor(qmlApi: QmlApi, qmlObjects: QmlObjects) {
         this.workspace = qmlApi.workspace;
         //this.options = qmlApi.options;
-        //this.kwin = qmlApi.kwin;
+        this.kwin = qmlApi.kwin;
         this.qmlObjects = qmlObjects;
 
         this.eventTimer = this.qmlObjects.eventTimer;
@@ -62,6 +64,41 @@ class Controller {
             this.qmlObjects.shortcuts,
         );
         this.updateDrivers();
+
+        // kwin only rereads its config file on reconfigure, which is delayed, so wait for the signal
+        qmlApi.options.configChanged.connect(this.configChanged.bind(this));
+        const reconfigure = this.qmlObjects.dbus.reconfigure();
+        reconfigure.failed.connect(() => {
+            this.configReloadPending = false;
+            console().error("failed to ask kwin to reconfigure");
+        });
+    }
+
+    requestConfigReload() {
+        console().log("requesting config reload");
+        this.configReloadPending = true;
+        this.qmlObjects.dbus.reconfigure().call();
+    }
+
+    // only reload when asked to, as kwin reconfigures for many unrelated reasons
+    private configChanged() {
+        if (!this.configReloadPending) {
+            return;
+        }
+        this.configReloadPending = false;
+        reloadConfigObj(this.kwin);
+        console().log("config reloaded");
+        console().debug("config -", JSON.stringify(config()));
+        this.eventTimer.interval = config().rebuildDelay;
+        for (const display of Display.generate(
+            this.workspace.desktops,
+            this.workspace.activities,
+            this.workspace.screens,
+        )) {
+            this.queueEvent({ t: "resetEngine", display: display });
+        }
+        // resetEngine only rebuilds displays whose engine changed, so rebuild for other settings too
+        this.queueEvent({ t: "rebuildDisplays" });
     }
 
     queueEvent(ev: Event, forcePush: boolean = false) {
@@ -660,6 +697,11 @@ let controllerObj: Controller;
 let consoleObj: Console;
 let configObj: Config;
 let qtObject: Qt;
+
+// defined below configObj so qml doesn't warn about using it before its declaration
+function reloadConfigObj(kwin: KWin) {
+    configObj = new Config(kwin);
+}
 
 export function initializeController(qmlApi: QmlApi, qmlObjects: QmlObjects) {
     configObj = new Config(qmlApi.kwin);
