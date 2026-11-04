@@ -26,6 +26,7 @@ A personal fork of [zeroxoneafour/polonium](https://github.com/zeroxoneafour/pol
 - Activate left/right moves focus to the neighbouring screen at the edge of a layout
 - Place left/right sends the window to the neighbouring screen; place up/down moves it to the previous/next desktop and follows it
 - Polonium: Move Window to Desktop 1-9 shortcuts (default Meta+Shift+1-9) move the window and follow it
+- COSMIC-style defaults: Meta+G toggles tiling on the active window and Meta+Y on the whole display (KDE's Grid View also defaults to Meta+G, so unbind it)
 
 Build and install with `make`, then log out and back in. Upstream changes merge from the `upstream` remote.
 

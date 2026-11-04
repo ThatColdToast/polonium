@@ -14,7 +14,7 @@ Item {
 
         name: "PoloniumToggleActiveTiling";
         text: "Polonium: Toggle Tiling on Active Window";
-        sequence: "Meta+Shift+Space";
+        sequence: "Meta+G";
     }
     function toggleAllTiling() {
         return toggleAllTilingObj;
@@ -24,7 +24,7 @@ Item {
 
         name: "PoloniumToggleAllTiling";
         text: "Polonium: Toggle Tiling on All Windows on Active Display";
-        sequence: "";
+        sequence: "Meta+Y";
     }
 
     // no default shortcuts for specific engines

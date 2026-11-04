@@ -8,6 +8,7 @@
 - Move focus and windows to the next screen with activate/place left and right at the edge of a layout
 - Move windows to the previous/next desktop with place up and down at the edge of a layout
 - Add shortcuts to move the active window to desktops 1-9 and follow it
+- Default COSMIC-style keys: Meta+G toggles tiling on the active window, Meta+Y on the whole display
 
 ### 1.2.2
 
