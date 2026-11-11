@@ -28,7 +28,7 @@ A personal fork of [zeroxoneafour/polonium](https://github.com/zeroxoneafour/pol
 - Polonium: Move Window to Desktop 1-9 shortcuts (default Meta+Shift+1-9) move the window and follow it
 - COSMIC-style defaults: Meta+G toggles tiling on the active window and Meta+Y on the whole display (KDE's Grid View also defaults to Meta+G, so unbind it)
 
-Build and install with `make`, then log out and back in. Upstream changes merge from the `upstream` remote.
+Every push to `master` publishes a build as `polonium.kwinscript` on the `nightly` release, which machines set up from dotfiles download and install. To try local changes, build and install with `make`, then log out and back in. Upstream changes merge from the `upstream` remote.
 
 ## features
 
