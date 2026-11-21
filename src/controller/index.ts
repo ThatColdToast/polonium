@@ -77,6 +77,10 @@ class Controller {
         });
     }
 
+    adoptExistingWindows() {
+        this.workspaceHandler.adoptExistingWindows();
+    }
+
     requestConfigReload() {
         console().log("requesting config reload");
         this.configReloadPending = true;
@@ -758,6 +762,8 @@ export function initializeController(qmlApi: QmlApi, qmlObjects: QmlObjects) {
         console().error(err);
     }
     controllerObj = new Controller(qmlApi, qmlObjects);
+    // after controllerObj is set, because adopting windows queues events through it
+    controllerObj.adoptExistingWindows();
     console().log("controller initialized. Welcome to Polonium!");
 }
 
