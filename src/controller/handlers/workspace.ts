@@ -35,8 +35,19 @@ export class WorkspaceHandler {
         this.workspace.activitiesChanged.connect(this.updateDrivers.bind(this));
     }
 
+    // windows that were open before the script loaded (it was reloaded mid-session)
+    // never trigger windowAdded, so handle them as if they had just opened
+    adoptExistingWindows() {
+        for (const window of this.workspace.windows) {
+            this.windowAdded(window);
+        }
+    }
+
     windowAdded(window: Window) {
         if (
+            // unmanaged (override-redirect) X11 windows, such as xembedsniproxy's
+            // tray icon containers, can't be resized and would leave an empty tile
+            !window.managed ||
             config().ignoreWindowClasses.test(window.resourceClass) ||
             config().ignoreWindowCaptions.test(window.caption)
         ) {
